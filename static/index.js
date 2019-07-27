@@ -1,10 +1,32 @@
-
-document.addEventListener('DOMContentLoaded', function() {
-  // connect to websocket
-  var socket = io.connect(location.protocol + '//' + document.domain + ':' + location.port);
+// declare global socket variable
+var socket = io.connect(location.protocol + '//' + document.domain + ':' + location.port);
+// Do this once the document have loaded
+document.addEventListener('DOMContentLoaded', () => {
+  // variable in this outer scope for other functions to change the chatroom
+  var send_msg_cont = ""
   //load username into profile name on document load
   document.querySelector('#profile-name').innerHTML = localStorage.getItem('name');
-  // hide the modal for chatroom creation
+  //so check to see if the list is empty, if it is change local storage chatroom to null
+  if (!document.querySelector('#contacts ul').firstElementChild){
+    console.log("the list is empty!")
+    localStorage.removeItem('chatroom');
+    // disable messages and message input
+    var message_area = document.querySelector(".messages");
+      message_area.style.display = "none";
+    var message_input = document.querySelector(".message-input");
+      message_input.style.display = "none";
+  }
+  // if it is not, that means user is not in their first session
+  else {
+    var chatroom = localStorage.getItem("chatroom")
+    var username = localStorage.getItem("name")
+    var message_area = document.querySelector(".messages");
+    message_area.style.display = "block";
+    var message_input = document.querySelector(".message-input");
+    message_input.style.display = "block";
+    socket.emit('enter channel', {'contents': chatroom, 'username': username});
+  }
+  //
   var modal1 = document.getElementById("myModal1");
   modal1.style.display = "none";
   // prompt user for new name if local name is null
@@ -44,45 +66,40 @@ document.addEventListener('DOMContentLoaded', function() {
       button.style.display = "block";
     }
 
-    // disable messages and message input
-    var message_area = document.querySelector(".messages");
-      message_area.style.display = "none";
-    var message_input = document.querySelector(".message-input");
-      message_input.style.display = "none";
-
 
     //clear button clears the session or logs the user out
     var log_out = document.querySelector('#settings');
     log_out.onclick = function () {
       localStorage.clear();
       location.reload();
-
     };
-
     //when user clicks on create channel
     document.querySelector('#add-channel').onclick = () => {
-      // pop up modal
+      // pop up moda
       modal1.style.display = "block";
-      console.log("channel clicked")
     };
-
+    // this listens for pushstate and then takes the states and assign title and url
+    window.onpopstate = e => {
+        const data = e.state;
+        document.title = data.title;
+        const username = localStorage.getItem('name');
+        localStorage.setItem('chatroom', data.title);
+        socket.emit('enter channel', {'contents': data.title, 'username': username});
+    };
       // Initialize new request
     document.querySelector('#form1').onsubmit = function(e) {
-      console.log("new XML request");
       modal1.style.display = "none";
       const request = new XMLHttpRequest();
       const chatroom = document.querySelector('#chatroom').value;
       const username = localStorage.getItem('name');
       request.open('POST', '/add_chatroom');
-
-        // Callback function for when request completes
+      // this is the xml request to the server for the chatroom
+          // that also means
       request.onload = () => {
-      console.log("Request completes");
           // Extract JSON data from request
           const data = JSON.parse(request.responseText);
           // Update the result div
           if (data.success) {
-              console.log("Data success");
               // get the data that was returned.
               const contents = `${data.chatroom}`
               // create the dom tree under contacts
@@ -115,7 +132,14 @@ document.addEventListener('DOMContentLoaded', function() {
                 message_area.style.display = "block";
                 message_input.style.display = "block";
                 // when a user enters add_chatroom
-                socket.emit('enter channel', {'contents': contents});
+                // *** this is because contents is always the one you created?
+                send_msg_cont = contents
+                localStorage.setItem('chatroom', send_msg_cont);
+                console.log(contents)
+                // ok so this is the part where entering should be a post request
+                document.title = contents;
+                history.pushState({"title": contents}, contents, contents)
+                socket.emit('enter channel', {'contents': contents, 'username': username});
               };
           }
           else {
@@ -137,112 +161,174 @@ document.addEventListener('DOMContentLoaded', function() {
       return false;
       };
       // Connect to websocket
-
-
-      // When connected, configure buttons
+      // When connected, configure buttons, check to see if there is a previous session
       socket.on('connect', () => {
-          // Each button should emit a "submit vote" event
+          // If the user previously had a previous session
+          var a = localStorage.getItem("chatroom")
+          var b = localStorage.getItem("name")
+          if (a || b == null){
+            console.log("this is a new session")
+            console.log(a)
+            console.log(b)
+          }
           document.querySelectorAll(".contact").forEach(elem => elem.onclick = () => {
             message_area.style.display = "block";
             message_input.style.display = "block";
-            var contents = elem.value;
+            var contents = elem.querySelector(".name").innerHTML;
+            send_msg_cont = localStorage.getItem("chatroom");
             const username = localStorage.getItem('name');
-            socket.emit('enter channel', {'contents': contents});
+            document.title = contents;
+            history.pushState({"title": contents}, contents, contents)
+            localStorage.setItem('chatroom', contents);
+            socket.emit('enter channel', {'contents': contents, 'username': username});
           });
+
+
+
+          socket.on('load messages', data => {
+            console.log("loading from refresh")
+              const username = localStorage.getItem('name');
+              const d_username = JSON.parse(data.username)
+              clear_channels();
+              const li = document.createElement('li');
+              // parse the messages;
+              var result = JSON.parse(data.chatroom_messages)
+              message = ""
+              dt = ""
+              // data passes back the chatroom
+              for (var i in result) {
+                // key is the user
+                var key = i;
+                var val = result[i]; // chatroom[username]
+                for (var j in val) {
+                  // for each message for the user, time and message
+                  var sub_key = j;
+                  var sub_val = val[j];
+                  message = sub_val;
+                  dt = sub_key;
+                  $('<li class="sent"><img src="https://github.githubassets.com/images/modules/logos_page/Octocat.png" alt="" /><span class="tooltiptext">'+ dt +'</span><p>' + message + '</p></li>').appendTo($('.messages ul'));
+                  $('.message-input input').val(null);
+                  $('.contact.active .preview').html('<span>You: </span>' + message);
+                  $(".messages").animate({ scrollTop: $(document).height() }, "fast");
+                }
+              }
+          });
+
+          // When user send messages
+          socket.on('append messages', data => {
+              var current_chatroom = localStorage.getItem('chatroom');
+              var chatroom = JSON.parse(data.chatroom)
+              if (chatroom != current_chatroom){
+                return false;
+              }
+
+              const li = document.createElement('li');
+              const username = localStorage.getItem('name');
+              // parse the messages;
+              var d_username = JSON.parse(data.username)
+              var result = JSON.parse(data.message)
+
+
+
+              message = ""
+              dt = ""
+              for (var i in result) {
+                var key = i;
+                var val = result[i];
+                message = val;
+                dt = key;
+              }
+              // this expression is equivalent to parsing
+              if (d_username != username) {
+                $('<li class="replies"><img src="https://github.githubassets.com/images/modules/logos_page/Octocat.png" alt="" /><span class="tooltiptext">'+ d_username + ":" + dt +'</span><p>' + message + '</p></li>').appendTo($('.messages ul'));
+                $('.message-input input').val(null);
+                $('.contact.active .preview').html('<span>You: </span>' + message);
+                $(".messages").animate({ scrollTop: $(document).height() }, "fast");
+              }
+              else {
+                $('<li class="sent"><img src="https://github.githubassets.com/images/modules/logos_page/Octocat.png" alt="" /><span class="tooltiptext">'+ username + ":" + dt +'</span><p>' + message + '</p></li>').appendTo($('.messages ul'));
+                $('.message-input input').val(null);
+                $('.contact.active .preview').html('<span>You: </span>' + message);
+                $(".messages").animate({ scrollTop: $(document).height() }, "fast");
+              }
+
+          });
+          const clear_channels = () => {
+            let ul = document.querySelector(".messages ul");
+            ul.innerHTML = "";
+          };
+
+
+            $(".messages").animate({ scrollTop: $(document).height() }, "fast");
+
+            $("#profile-img").click(function() {
+            	$("#status-options").toggleClass("active");
+            });
+
+            $(".expand-button").click(function() {
+              $("#profile").toggleClass("expanded");
+            	$("#contacts").toggleClass("expanded");
+            });
+
+            $("#status-options ul li").click(function() {
+            	$("#profile-img").removeClass();
+            	$("#status-online").removeClass("active");
+            	$("#status-away").removeClass("active");
+            	$("#status-busy").removeClass("active");
+            	$("#status-offline").removeClass("active");
+            	$(this).addClass("active");
+
+            	if($("#status-online").hasClass("active")) {
+            		$("#profile-img").addClass("online");
+            	} else if ($("#status-away").hasClass("active")) {
+            		$("#profile-img").addClass("away");
+            	} else if ($("#status-busy").hasClass("active")) {
+            		$("#profile-img").addClass("busy");
+            	} else if ($("#status-offline").hasClass("active")) {
+            		$("#profile-img").addClass("offline");
+            	} else {
+            		$("#profile-img").removeClass();
+            	};
+            	$("#status-options").removeClass("active");
+            });
+
+            function newMessage() {
+            	message = $(".message-input input").val();
+              //send message to server with the message containing the message itself, username, and chatroom
+              const username = localStorage.getItem('name');
+              send_msg_cont = localStorage.getItem('chatroom')
+              var chatroom = ""
+              if (send_msg_cont == "") {
+                // this should never fire
+                console.log("I should never fire")
+                chatroom = document.querySelector('#chatroom').value;
+              }
+              else {
+                chatroom = send_msg_cont;
+              }
+              console.log("username" + username)
+              console.log(send_msg_cont) // this is chatroom essentially
+              console.log(message)
+              // send message to the server with the message, chatroom, and username
+              socket.emit('send message', {'message': message, 'chatroom': chatroom, 'username': username});
+            	if($.trim(message) == '') {
+            		return false;
+            	}
+            };
+
+            $('.submit').click(function() {
+              newMessage();
+            });
+
+            $(window).on('keydown', function(e) {
+              if (e.which == 13) {
+                newMessage();
+                return false;
+              }
+            });
+    });
+
       });
-      // when the user first enters the room
-      socket.on('load messages', data => {
-          // clear the messages area
-          //document.querySelector(".messages").innerHTML = "";
-          const li = document.createElement('li');
-          const response = JSON.parse(data)
-          console.log(response.username)
-          const username = localStorage.getItem('name');
-          // parse the messages;
-          message = `${response}`;
-          $('<li class="sent"><img src="https://github.githubassets.com/images/modules/logos_page/Octocat.png" alt="" /><p>' + message + '</p></li>').appendTo($('.messages ul'));
-          $('.message-input input').val(null);
-          $('.contact.active .preview').html('<span>You: </span>' + message);
-          $(".messages").animate({ scrollTop: $(document).height() }, "fast");
-      });
-
-      // When user send messages
-      socket.on('append messages', data => {
-          const li = document.createElement('li');
-          const username = localStorage.getItem('name');
-          // parse the messages;
-          message = `${data}`;
-          $('<li class="sent"><img src="https://github.githubassets.com/images/modules/logos_page/Octocat.png" alt="" /><p>' + message + '</p></li>').appendTo($('.messages ul'));
-          $('.message-input input').val(null);
-          $('.contact.active .preview').html('<span>You: </span>' + message);
-          $(".messages").animate({ scrollTop: $(document).height() }, "fast");
-          document.querySelector
-      });
 
 
-
-
-
-});
-
-
-
-  $(".messages").animate({ scrollTop: $(document).height() }, "fast");
-
-  $("#profile-img").click(function() {
-  	$("#status-options").toggleClass("active");
-  });
-
-  $(".expand-button").click(function() {
-    $("#profile").toggleClass("expanded");
-  	$("#contacts").toggleClass("expanded");
-  });
-
-  $("#status-options ul li").click(function() {
-  	$("#profile-img").removeClass();
-  	$("#status-online").removeClass("active");
-  	$("#status-away").removeClass("active");
-  	$("#status-busy").removeClass("active");
-  	$("#status-offline").removeClass("active");
-  	$(this).addClass("active");
-
-  	if($("#status-online").hasClass("active")) {
-  		$("#profile-img").addClass("online");
-  	} else if ($("#status-away").hasClass("active")) {
-  		$("#profile-img").addClass("away");
-  	} else if ($("#status-busy").hasClass("active")) {
-  		$("#profile-img").addClass("busy");
-  	} else if ($("#status-offline").hasClass("active")) {
-  		$("#profile-img").addClass("offline");
-  	} else {
-  		$("#profile-img").removeClass();
-  	};
-
-  	$("#status-options").removeClass("active");
-  });
-
-  function newMessage() {
-  	message = $(".message-input input").val();
-    //send message to server with the message containing the message itself, username, and chatroom
-    const username = localStorage.getItem('name');
-    const chatroom = document.querySelector('#chatroom').value;
-    console.log("new Message")
-    // send message to the server with the message, chatroom, and username
-    socket.emit('send message', {'message': message, 'chatroom': chatroom, 'username': username});
-    console.log("socket send?")
-  	if($.trim(message) == '') {
-  		return false;
-  	}
-  };
-
-  $('.submit').click(function() {
-    newMessage();
-  });
-
-  $(window).on('keydown', function(e) {
-    if (e.which == 13) {
-      newMessage();
-      return false;
-    }
-  });
   //# sourceURL=pen.js
