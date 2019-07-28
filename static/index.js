@@ -4,6 +4,8 @@ var socket = io.connect(location.protocol + '//' + document.domain + ':' + locat
 document.addEventListener('DOMContentLoaded', () => {
   // variable in this outer scope for other functions to change the chatroom
   var send_msg_cont = ""
+
+
   //load username into profile name on document load
   document.querySelector('#profile-name').innerHTML = localStorage.getItem('name');
   //so check to see if the list is empty, if it is change local storage chatroom to null
@@ -24,6 +26,8 @@ document.addEventListener('DOMContentLoaded', () => {
     message_area.style.display = "block";
     var message_input = document.querySelector(".message-input");
     message_input.style.display = "block";
+    document.title = chatroom;
+    history.pushState({"title": chatroom}, chatroom, chatroom)
     socket.emit('enter channel', {'contents': chatroom, 'username': username});
   }
   //
@@ -171,6 +175,12 @@ document.addEventListener('DOMContentLoaded', () => {
             console.log(a)
             console.log(b)
           }
+          document.getElementById("file_upload").onclick = () => {
+              console.log("hello i am clicked")
+              document.getElementById("f_up").click()
+          }
+
+
           document.querySelectorAll(".contact").forEach(elem => elem.onclick = () => {
             message_area.style.display = "block";
             message_input.style.display = "block";
@@ -195,21 +205,27 @@ document.addEventListener('DOMContentLoaded', () => {
               var result = JSON.parse(data.chatroom_messages)
               message = ""
               dt = ""
-              // data passes back the chatroom
               for (var i in result) {
-                // key is the user
+                // key is the date_time
                 var key = i;
-                var val = result[i]; // chatroom[username]
+                var val = result[i];
                 for (var j in val) {
-                  // for each message for the user, time and message
-                  var sub_key = j;
-                  var sub_val = val[j];
+                  var sub_key = j; // this is the user name
+                  var sub_val = val[j]; // this is the messae
                   message = sub_val;
-                  dt = sub_key;
-                  $('<li class="sent"><img src="https://github.githubassets.com/images/modules/logos_page/Octocat.png" alt="" /><span class="tooltiptext">'+ dt +'</span><p>' + message + '</p></li>').appendTo($('.messages ul'));
-                  $('.message-input input').val(null);
-                  $('.contact.active .preview').html('<span>You: </span>' + message);
-                  $(".messages").animate({ scrollTop: $(document).height() }, "fast");
+                  dt = JSON.parse(i);
+                  if (sub_key != username) {
+                    $('<li class="replies"><img src="https://github.githubassets.com/images/modules/logos_page/Octocat.png" alt="" /><span class="tooltiptext">'+ d_username + ": " + dt +'</span><p>' + message + '</p></li>').appendTo($('.messages ul'));
+                    $('.message-input input').val(null);
+                    $('.contact.active .preview').html('<span>You: </span>' + message);
+                    $(".messages").animate({ scrollTop: $(document).height() }, "fast");
+                  }
+                  else {
+                    $('<li class="sent"><img src="https://github.githubassets.com/images/modules/logos_page/Octocat.png" alt="" /><span class="tooltiptext">'+ username + ": " + dt +'</span><p>' + message + '</p></li>').appendTo($('.messages ul'));
+                    $('.message-input input').val(null);
+                    $('.contact.active .preview').html('<span>You: </span>' + message);
+                    $(".messages").animate({ scrollTop: $(document).height() }, "fast");
+                  }
                 }
               }
           });
@@ -225,28 +241,28 @@ document.addEventListener('DOMContentLoaded', () => {
               const li = document.createElement('li');
               const username = localStorage.getItem('name');
               // parse the messages;
-              var d_username = JSON.parse(data.username)
-              var result = JSON.parse(data.message)
-
+              var d_username = JSON.parse(data.username);
+              var result = JSON.parse(data.message); // message contains username
+              var date_t = JSON.parse(data.date_time);
 
 
               message = ""
               dt = ""
-              for (var i in result) {
-                var key = i;
-                var val = result[i];
+              for (var i in result) { // for username and message in datetime
+                var key = i; // username
+                var val = result[i]; // message
                 message = val;
-                dt = key;
+                dt = date_t;
               }
               // this expression is equivalent to parsing
               if (d_username != username) {
-                $('<li class="replies"><img src="https://github.githubassets.com/images/modules/logos_page/Octocat.png" alt="" /><span class="tooltiptext">'+ d_username + ":" + dt +'</span><p>' + message + '</p></li>').appendTo($('.messages ul'));
+                $('<li class="replies"><img src="https://github.githubassets.com/images/modules/logos_page/Octocat.png" alt="" /><span class="tooltiptext">'+ d_username + ": " + dt +'</span><p>' + message + '</p></li>').appendTo($('.messages ul'));
                 $('.message-input input').val(null);
                 $('.contact.active .preview').html('<span>You: </span>' + message);
                 $(".messages").animate({ scrollTop: $(document).height() }, "fast");
               }
               else {
-                $('<li class="sent"><img src="https://github.githubassets.com/images/modules/logos_page/Octocat.png" alt="" /><span class="tooltiptext">'+ username + ":" + dt +'</span><p>' + message + '</p></li>').appendTo($('.messages ul'));
+                $('<li class="sent"><img src="https://github.githubassets.com/images/modules/logos_page/Octocat.png" alt="" /><span class="tooltiptext">'+ username + ": " + dt +'</span><p>' + message + '</p></li>').appendTo($('.messages ul'));
                 $('.message-input input').val(null);
                 $('.contact.active .preview').html('<span>You: </span>' + message);
                 $(".messages").animate({ scrollTop: $(document).height() }, "fast");

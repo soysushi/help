@@ -30,7 +30,6 @@ def create_chatroom():
         return jsonify({"success": False})
     # if the chatro does not yet exist, add to chats
     chatrooms[chatroom] = {}
-    chatrooms[chatroom][username] = {}
     return jsonify({"success": True, "chatroom": chatroom})
 
 #channel websocket listening when user has entered a channel, display current text
@@ -43,7 +42,7 @@ def enter_channel(data):
     chatroom_messages = chatrooms[chatroom]
     chatroom_messages = json.dumps(chatroom_messages)
     username = json.dumps(username)
-    print("am i getting loaded on refresh?")
+    print(chatroom_messages)
     emit("load messages", {"chatroom_messages": chatroom_messages, "username":username}, broadcast=False)
 
 @socketio.on("send message")
@@ -55,27 +54,25 @@ def messages(data):
     # append the messages to the correct chatroom and username
     now = datetime.now()
     date_time = now.strftime("%m/%d/%Y, %H:%M:%S")
+    date_time = json.dumps(date_time)
+    #
+
     try:
-        chatrooms[chatroom][username][date_time] = message
+        chatrooms[chatroom][date_time][username] = message
     except:
         print(chatroom, username)
-        chatrooms[chatroom][username] = {}
-        chatrooms[chatroom][username][date_time] = message
+        chatrooms[chatroom][date_time] = {}
+        chatrooms[chatroom][date_time][username] = message
 
-    message = json.dumps(chatrooms[chatroom][username])
-    # variable that holds the length of the dictionary
-    dict_length = len(chatrooms[chatroom][username])
-    # variable that holds the first key to the dictionary
-    first_msg = list(chatrooms[chatroom][username].keys())[0]
-    last_msg_time = list(chatrooms[chatroom][username].keys())[-1]
-    last_msg = list(chatrooms[chatroom][username].values())[-1]
-    # plugging in the recent message into dictionary
+    message = json.dumps(chatrooms[chatroom][date_time])
+    dict_length = len(chatrooms[chatroom][date_time])
+
     username = json.dumps(username)
     chatroom = json.dumps(chatroom)
-    print(last_msg_time, last_msg)
+
     if (dict_length >= 100):
-        temp = chatrooms[chatroom][username].pop(first_msg, None)
+        temp = chatrooms[chatroom][date_time].pop(first_msg, None)
         print (dict_length)
         print (chatrooms)
     # message itself contains
-    emit("append messages", {"message":message, "username":username, "chatroom": chatroom}, broadcast=True)
+    emit("append messages", {"date_time": date_time, "message":message, "username":username, "chatroom": chatroom}, broadcast=True)
