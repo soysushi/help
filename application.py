@@ -76,3 +76,8 @@ def messages(data):
         print (chatrooms)
     # message itself contains
     emit("append messages", {"date_time": date_time, "message":message, "username":username, "chatroom": chatroom}, broadcast=True)
+
+@socketio.on("file")
+def messages(data):
+    print("hello from the server")
+    return;

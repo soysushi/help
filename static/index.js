@@ -175,10 +175,20 @@ document.addEventListener('DOMContentLoaded', () => {
             console.log(a)
             console.log(b)
           }
+          // FILE UPLOAD PROC
           document.getElementById("file_upload").onclick = () => {
               console.log("hello i am clicked")
+              // enablle document box
               document.getElementById("f_up").click()
+              // take the results
+              document.getElementById("f_up").onchange = function(event) {
+                // target tgets the element value that triggered this event
+                var fileList = event.target
+                console.log(fileList)
+                socket.emit('file', {'file': fileList});
+              }
           }
+          //
 
 
           document.querySelectorAll(".contact").forEach(elem => elem.onclick = () => {
