@@ -15,6 +15,7 @@
 
 .sent:hover .tooltiptext {
   visibility: visible;
+  cursor: pointer;
 }
 
 @-webkit-keyframes animatetop {

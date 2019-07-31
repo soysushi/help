@@ -6,6 +6,7 @@ from datetime import datetime
 from flask import Flask, jsonify, render_template, request, redirect
 from flask_socketio import SocketIO, emit
 
+
 app = Flask(__name__)
 app.config["SECRET_KEY"] = os.getenv("SECRET_KEY")
 socketio = SocketIO(app)
@@ -63,21 +64,22 @@ def messages(data):
         print(chatroom, username)
         chatrooms[chatroom][date_time] = {}
         chatrooms[chatroom][date_time][username] = message
-
+    # post 3.6, dicts are now ordered
+    # part 3    
+    first_msg = list(chatrooms[chatroom].values())[0]
     message = json.dumps(chatrooms[chatroom][date_time])
     dict_length = len(chatrooms[chatroom][date_time])
 
     username = json.dumps(username)
     chatroom = json.dumps(chatroom)
 
+
+    print(first_msg)
+
     if (dict_length >= 100):
+
         temp = chatrooms[chatroom][date_time].pop(first_msg, None)
         print (dict_length)
         print (chatrooms)
     # message itself contains
     emit("append messages", {"date_time": date_time, "message":message, "username":username, "chatroom": chatroom}, broadcast=True)
-
-@socketio.on("file")
-def messages(data):
-    print("hello from the server")
-    return;

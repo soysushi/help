@@ -20,6 +20,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   // if it is not, that means user is not in their first session
   else {
+    // part 5
     var chatroom = localStorage.getItem("chatroom")
     var username = localStorage.getItem("name")
     var message_area = document.querySelector(".messages");
@@ -90,7 +91,7 @@ document.addEventListener('DOMContentLoaded', () => {
         localStorage.setItem('chatroom', data.title);
         socket.emit('enter channel', {'contents': data.title, 'username': username});
     };
-      // Initialize new request
+    // Initialize new request
     document.querySelector('#form1').onsubmit = function(e) {
       modal1.style.display = "none";
       const request = new XMLHttpRequest();
@@ -98,7 +99,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const username = localStorage.getItem('name');
       request.open('POST', '/add_chatroom');
       // this is the xml request to the server for the chatroom
-          // that also means
+      // part 0
       request.onload = () => {
           // Extract JSON data from request
           const data = JSON.parse(request.responseText);
@@ -172,8 +173,6 @@ document.addEventListener('DOMContentLoaded', () => {
           var b = localStorage.getItem("name")
           if (a || b == null){
             console.log("this is a new session")
-            console.log(a)
-            console.log(b)
           }
           // FILE UPLOAD PROC
           document.getElementById("file_upload").onclick = () => {
@@ -182,15 +181,24 @@ document.addEventListener('DOMContentLoaded', () => {
               document.getElementById("f_up").click()
               // take the results
               document.getElementById("f_up").onchange = function(event) {
-                // target tgets the element value that triggered this event
-                var fileList = event.target
-                console.log(fileList)
-                socket.emit('file', {'file': fileList});
+                // target gets the element value that triggered this event
+                var img = event.target
+                socket.emit('file', {'file': img});
               }
           }
-          //
+          // file sent from server
+          socket.on('s file', data => {
+            console.log(data)
+            var img = new Image();
+            img.src = data;
+            console.log(img.src)
+            $('<li class="replies"><img src="https://github.githubassets.com/images/modules/logos_page/Octocat.png" alt="" /><span class="tooltiptext"></span><p>' + img.src +'</p></li>').appendTo($('.messages ul'));
+            $('.message-input input').val(null);
+            $('.contact.active .preview').html('<span>You: </span>' + img);
+            $(".messages").animate({ scrollTop: $(document).height() }, "fast");
+          });
 
-
+          // part 4
           document.querySelectorAll(".contact").forEach(elem => elem.onclick = () => {
             message_area.style.display = "block";
             message_input.style.display = "block";
@@ -204,7 +212,7 @@ document.addEventListener('DOMContentLoaded', () => {
           });
 
 
-
+          // part 4
           socket.on('load messages', data => {
             console.log("loading from refresh")
               const username = localStorage.getItem('name');
@@ -239,7 +247,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
               }
           });
-
+          // part 1
           // When user send messages
           socket.on('append messages', data => {
               var current_chatroom = localStorage.getItem('chatroom');
@@ -276,6 +284,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 $('.message-input input').val(null);
                 $('.contact.active .preview').html('<span>You: </span>' + message);
                 $(".messages").animate({ scrollTop: $(document).height() }, "fast");
+
+                document.querySelector(".tooltiptext").onclick = () => {
+                  var content = document.querySelector(".tooltiptext").innerHTML;
+                  console.log(content)
+                }
               }
 
           });
@@ -283,6 +296,7 @@ document.addEventListener('DOMContentLoaded', () => {
             let ul = document.querySelector(".messages ul");
             ul.innerHTML = "";
           };
+
 
 
             $(".messages").animate({ scrollTop: $(document).height() }, "fast");
